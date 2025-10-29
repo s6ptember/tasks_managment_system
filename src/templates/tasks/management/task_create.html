@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+<!--
+Filename: task_create.html
+Path: src/templates/tasks/management/task_create.html
+Description: Страница создания задачи через панель управления
+-->
+
+{% block title %}Создать задачу{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl" x-data="taskCreateState()">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <h1 class="text-4xl font-bold text-gray-800">
+            {% if manual_creation %}Создать задачу вручную{% else %}Создать задачу из шаблона{% endif %}
+        </h1>
+        <a
+            href="{% url 'tasks:management_dashboard' %}"
+            class="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-xl transition-all"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Назад
+        </a>
+    </div>
+
+    <!-- Form -->
+    <form method="post" class="bg-white rounded-3xl shadow-md p-8 space-y-6">
+        {% csrf_token %}
+
+        {% if not manual_creation %}
+        <!-- Template Selection -->
+        <div>
+            <label for="{{ form.template.id_for_label }}" class="block text-sm font-semibold text-gray-600 mb-2">
+                Выберите шаблон *
+            </label>
+            <select
+                name="{{ form.template.name }}"
+                id="{{ form.template.id_for_label }}"
+                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                required
+                @change="loadTemplateData($event.target.value)"
+            >
+                <option value="">-- Выберите шаблон --</option>
+                {% for template in form.fields.template.queryset %}
+                <option value="{{ template.pk }}">{{ template.name }}</option>
+                {% endfor %}
+            </select>
+            {% if form.template.errors %}
+            <p class="mt-2 text-sm text-red-500">{{ form.template.errors.0 }}</p>
+            {% endif %}
+
+            <!-- Template Preview -->
+            <div x-show="templatePreview.subtasks.length > 0" x-transition class="mt-4 bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
+                <h4 class="text-sm font-semibold text-blue-800 mb-2">Подзадачи в шаблоне:</h4>
+                <ul class="space-y-2">
+                    <template x-for="subtask in templatePreview.subtasks" :key="subtask.id">
+                        <li class="flex items-center gap-2 text-gray-600">
+                            <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span x-text="subtask.name"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Task Title -->
+        <div>
+            <label for="{{ form.title.id_for_label }}" class="block text-sm font-semibold text-gray-600 mb-2">
+                Название задачи *
+            </label>
+            <input
+                type="text"
+                name="{{ form.title.name }}"
+                id="{{ form.title.id_for_label }}"
+                x-model="taskTitle"
+                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
+                placeholder="Название задачи"
+                required
+            >
+            {% if form.title.errors %}
+            <p class="mt-2 text-sm text-red-500">{{ form.title.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Task Date -->
+        <div>
+            <label for="{{ form.date.id_for_label }}" class="block text-sm font-semibold text-gray-600 mb-2">
+                Дата выполнения *
+            </label>
+            <input
+                type="date"
+                name="{{ form.date.name }}"
+                id="{{ form.date.id_for_label }}"
+                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                required
+            >
+            {% if form.date.errors %}
+            <p class="mt-2 text-sm text-red-500">{{ form.date.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        {% if manual_creation %}
+        <!-- Manual Subtasks -->
+        <div class="border-t border-gray-200 pt-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Подзадачи</h3>
+                <button
+                    type="button"
+                    @click="addSubtask()"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold rounded-lg transition-all"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Добавить подзадачу
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <template x-for="(subtask, index) in subtasks" :key="subtask.id">
+                    <div class="flex gap-3 items-center">
+                        <input
+                            type="text"
+                            name="subtask_name[]"
+                            x-model="subtask.name"
+                            class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Название подзадачи"
+                        >
+                        <button
+                            type="button"
+                            @click="removeSubtask(index)"
+                            class="p-3 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-colors"
+                            title="Удалить"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </template>
+            </div>
+
+            <p x-show="subtasks.length === 0" class="text-center py-8 text-gray-400">
+                Нет подзадач. Нажмите "Добавить подзадачу" для создания.
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Buttons -->
+        <div class="flex gap-3 pt-6">
+            <a
+                href="{% url 'tasks:management_dashboard' %}"
+                class="flex-1 px-6 py-3 border-2 border-gray-200 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition-all text-center"
+            >
+                Отмена
+            </a>
+            <button
+                type="submit"
+                class="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+            >
+                Создать задачу
+            </button>
+        </div>
+    </form>
+
+</div>
+
+<script>
+    function taskCreateState() {
+        return {
+            taskTitle: '',
+            templatePreview: {
+                name: '',
+                subtasks: []
+            },
+            subtasks: [],
+            nextId: 1,
+
+            loadTemplateData(templateId) {
+                if (!templateId) {
+                    this.taskTitle = '';
+                    this.templatePreview = { name: '', subtasks: [] };
+                    return;
+                }
+
+                fetch(`/api/templates/${templateId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Автоматически заполняем название
+                        this.taskTitle = data.name;
+
+                        // Сохраняем превью
+                        this.templatePreview = {
+                            name: data.name,
+                            subtasks: data.subtasks
+                        };
+                    })
+                    .catch(error => {
+                        console.error('Error loading template:', error);
+                    });
+            },
+
+            addSubtask() {
+                this.subtasks.push({
+                    id: this.nextId++,
+                    name: ''
+                });
+            },
+
+            removeSubtask(index) {
+                this.subtasks.splice(index, 1);
+            }
+        }
+    }
+</script>
+{% endblock %}

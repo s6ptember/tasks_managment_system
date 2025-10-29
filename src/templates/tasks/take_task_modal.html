@@ -1,0 +1,140 @@
+<!--
+Filename: take_task_modal.html
+Path: src/templates/tasks/take_task_modal.html
+Description: Модальное окно для выбора подзадач в светлой теме
+-->
+
+<div
+    class="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4"
+    x-data="{ open: true }"
+    x-show="open"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @click.self="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+>
+    <div
+        class="bg-white rounded-3xl shadow-lg w-full max-w-lg"
+        x-show="open"
+        x-transition:enter="transition ease-out duration-200 delay-100"
+        x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-95"
+    >
+        <!-- Header -->
+        <div class="px-6 py-5 border-b border-gray-200" style="border-radius: 32px 32px 0 0;">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Take Task</h2>
+                    <p class="text-gray-500 mt-1">{{ task.title }}</p>
+                </div>
+                <button
+                    @click="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+                    class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                    style="border-radius: 12px;"
+                >
+                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form
+            hx-post="{% url 'tasks:task_take' task.pk %}"
+            hx-target="#main-content"
+            hx-swap="innerHTML"
+            class="p-6"
+            @htmx:after-request="if(event.detail.successful) { open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150) }"
+        >
+            {% csrf_token %}
+
+            <div class="mb-6">
+                <p class="text-gray-600 font-medium mb-4">Выберите подзадачи, которые вы хотите взять:</p>
+
+                <div class="space-y-3">
+                    {% for subtask in form.fields.subtasks.queryset %}
+                    <label class="bg-gray-50 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-3 group">
+                        <input
+                            type="checkbox"
+                            name="subtasks"
+                            value="{{ subtask.pk }}"
+                            class="w-5 h-5 accent-blue-500 border-gray-300 focus:ring-blue-300"
+                            style="border-radius: 6px;"
+                        >
+                        <div class="flex-1">
+                            <span class="text-gray-800 font-medium group-hover:text-gray-900">{{ subtask.name }}</span>
+                            <div class="flex items-center gap-2 mt-1">
+                                {% if subtask.status == 'pending' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-500 text-xs font-medium" style="border-radius: 8px;">
+                                    <div class="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                    Свободна
+                                </span>
+                                {% elif subtask.status == 'in_progress' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-600 text-xs font-medium" style="border-radius: 8px;">
+                                    <div class="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                                    В работе
+                                </span>
+                                {% endif %}
+
+                                {% if subtask.assignments.exists %}
+                                <span class="text-xs text-gray-400">
+                                    {% for assignment in subtask.assignments.all %}
+                                        {{ assignment.user.first_name_only }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </label>
+                    {% empty %}
+                    <div class="text-center py-8">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl mb-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-gray-500">Все подзадачи уже взяты или завершены</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if form.fields.subtasks.queryset.exists %}
+            <!-- Buttons -->
+            <div class="flex gap-3">
+                <button
+                    type="button"
+                    @click="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+                    class="flex-1 px-6 py-3 bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all duration-300"
+                    style="border-radius: 16px;"
+                >
+                    Отмена
+                </button>
+                <button
+                    type="submit"
+                    class="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all duration-300 shadow-md hover:shadow-lg"
+                    style="border-radius: 16px;"
+                >
+                    Взять задачу
+                </button>
+            </div>
+            {% else %}
+            <button
+                type="button"
+                @click="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+                class="w-full px-6 py-3 bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all duration-300"
+                style="border-radius: 16px;"
+                >
+                Закрыть
+            </button>
+            {% endif %}
+        </form>
+    </div>
+</div>

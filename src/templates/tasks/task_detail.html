@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load task_tags %}
+
+<!--
+Filename: task_detail.html
+Path: src/templates/tasks/task_detail.html
+Description: Детальный просмотр задачи со всеми подзадачами и историей действий
+-->
+
+{% block title %}{{ task.title }} - Задача{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+
+    <!-- Back Button -->
+    <div class="mb-6">
+        <button
+            hx-get="{% url 'tasks:dashboard' %}?date={{ task.date|date:'Y-m-d' }}"
+            hx-target="#main-content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            class="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Назад к задачам
+        </button>
+    </div>
+
+    <!-- Task Header -->
+    <div class="bg-white rounded-3xl shadow-xl p-8 mb-6">
+        <div class="flex items-start justify-between mb-6">
+            <div class="flex-1">
+                <h1 class="text-4xl font-bold text-gray-900 mb-3">{{ task.title }}</h1>
+                <div class="flex flex-wrap gap-3">
+                    <!-- Date Badge -->
+                    <span class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        {{ task.date|date:"d.m.Y (l)" }}
+                    </span>
+
+                    <!-- Status Badge -->
+                    {% if task.status == 'completed' %}
+                    <span class="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-xl">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        Завершено
+                    </span>
+                    {% elif task.status == 'in_progress' %}
+                    <span class="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 text-sm font-semibold rounded-xl">
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        В работе
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl">
+                        Доступна
+                    </span>
+                    {% endif %}
+
+                    <!-- Template Badge -->
+                    {% if task.template %}
+                    <span class="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 text-sm font-medium rounded-xl">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        {{ task.template.name }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            {% if user.can_create_tasks %}
+            <div class="flex gap-2">
+                <button
+                    hx-get="{% url 'tasks:task_edit' task.pk %}"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML"
+                    class="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                    title="Редактировать"
+                >
+                    <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </button>
+                <button
+                    hx-delete="{% url 'tasks:task_delete' task.pk %}"
+                    hx-confirm="Вы уверены, что хотите удалить задачу '{{ task.title }}'?"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="p-3 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+                    title="Удалить"
+                >
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Creator Info -->
+        <div class="border-t border-gray-200 pt-4">
+            <p class="text-sm text-gray-600">
+                Создал: <span class="font-semibold text-gray-900">{{ task.created_by.first_name_only }}</span>
+                <span class="text-gray-400 mx-2">•</span>
+                {{ task.created_at|date:"d.m.Y в H:i" }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Subtasks Section -->
+    <div class="bg-white rounded-3xl shadow-xl p-8 mb-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">Подзадачи</h2>
+            <span class="text-sm text-gray-600">
+                {{ task.subtasks.all|count_completed }}/{{ task.subtasks.count }} завершено
+            </span>
+        </div>
+
+        <div class="space-y-4">
+            {% for subtask in task.subtasks.all %}
+            <div class="border-2 {% if subtask.status == 'completed' %}border-green-200 bg-green-50{% elif subtask.status == 'in_progress' %}border-orange-200 bg-orange-50{% else %}border-gray-200{% endif %} rounded-xl p-5 transition-all">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ subtask.name }}</h3>
+
+                        <!-- Assignees -->
+                        {% if subtask.assignments.exists %}
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            {% for assignment in subtask.assignments.all %}
+                            <span class="inline-flex items-center gap-1 px-3 py-1 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">
+                                <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                </svg>
+                                {{ assignment.user.first_name_only }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Timestamps -->
+                        <div class="text-xs text-gray-600 space-y-1">
+                            {% if subtask.started_at %}
+                            <p>
+                                <span class="font-medium">Начата:</span> {{ subtask.started_at|date:"d.m.Y в H:i" }}
+                            </p>
+                            {% endif %}
+                            {% if subtask.completed_at %}
+                            <p>
+                                <span class="font-medium">Завершена:</span> {{ subtask.completed_at|date:"d.m.Y в H:i" }}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Status Indicator -->
+                    <div class="ml-4">
+                        {% if subtask.status == 'pending' %}
+                        <div class="w-10 h-10 rounded-full bg-gray-300 border-2 border-gray-400 flex items-center justify-center"></div>
+                        {% elif subtask.status == 'in_progress' %}
+                        <div class="w-10 h-10 rounded-full bg-orange-400 border-2 border-orange-500 flex items-center justify-center"></div>
+                        {% elif subtask.status == 'completed' %}
+                        <div class="w-10 h-10 rounded-full bg-green-400 border-2 border-green-500 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Actions for assigned users -->
+                {% for assignment in subtask.assignments.all %}
+                    {% if assignment.user == user and subtask.status != 'completed' %}
+                    <div class="pt-3 border-t border-gray-200">
+                        <button
+                            hx-post="{% url 'tasks:subtask_complete' subtask.pk %}"
+                            hx-target="#main-content"
+                            hx-swap="innerHTML"
+                            class="w-full px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors"
+                        >
+                            Отметить как выполненное
+                        </button>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% empty %}
+            <div class="text-center py-8">
+                <p class="text-gray-500">Нет подзадач</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    {% if task.actions.exists %}
+    <div class="bg-white rounded-3xl shadow-xl p-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">История действий</h2>
+
+        <div class="space-y-4">
+            {% for action in task.actions.all|slice:":10" %}
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    {% if action.action_type == 'created' %}
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    {% elif action.action_type == 'completed' %}
+                    <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    {% elif action.action_type == 'assigned' %}
+                    <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"></path>
+                    </svg>
+                    {% else %}
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {% endif %}
+                </div>
+
+                <div class="flex-1">
+                    <p class="text-gray-900 font-medium">{{ action.user.first_name_only }}</p>
+                    <p class="text-sm text-gray-600">{{ action.get_action_type_display }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ action.timestamp|date:"d.m.Y в H:i" }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

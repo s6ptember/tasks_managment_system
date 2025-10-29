@@ -1,0 +1,213 @@
+{% load static %}
+<!DOCTYPE html>
+<!--
+Filename: base.html
+Path: src/templates/base.html
+Description: Базовый шаблон с White Liquid Glass дизайном и PWA поддержкой
+-->
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}Task Manager{% endblock %}</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Система управления задачами с поддержкой шаблонов, подзадач и множественных исполнителей">
+    <meta name="keywords" content="task manager, управление задачами, проекты, планирование">
+    <meta name="author" content="Task Manager">
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Tasks">
+    <meta name="application-name" content="Task Manager">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="msapplication-TileColor" content="#8b5cf6">
+    <meta name="msapplication-navbutton-color" content="#8b5cf6">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192x192.png' %}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{% static 'icons/icon-512x512.png' %}">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{% static 'icons/icon-152x152.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}">
+
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileImage" content="{% static 'icons/icon-144x144.png' %}">
+
+    <!-- Tailwind CSS (local build) -->
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+
+    <!-- HTMX (local) -->
+    <script src="{% static 'js/htmx.min.js' %}"></script>
+
+    <!-- Alpine.js (local) -->
+    <script defer src="{% static 'js/alpine.min.js' %}"></script>
+
+    <!-- PWA Registration -->
+    <script defer src="{% static 'js/pwa-register.js' %}"></script>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="min-h-screen p-4 md:p-8 relative" x-data="appState()">
+
+    <!-- CSRF Token for HTMX -->
+    {% csrf_token %}
+
+    <!-- Loading Indicator -->
+    <div class="loading-indicator fixed top-4 right-4 z-50">
+        <div class="liquid-glass organic-shape px-4 py-2 flex items-center gap-2" style="border-radius: 20px;">
+            <svg class="animate-spin h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-sm font-medium text-gray-900">Загрузка...</span>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <div id="main-content" class="max-w-7xl mx-auto relative z-10">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" x-show="toasts.length > 0" style="display: none;">
+        <template x-for="toast in toasts" :key="toast.id">
+            <div
+                x-show="toast.visible"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 transform translate-y-2"
+                x-transition:enter-end="opacity-100 transform translate-y-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="liquid-glass organic-shape px-6 py-3 max-w-md"
+                style="border-radius: 20px;"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="text-gray-900" x-text="toast.message"></span>
+                    <button @click="removeToast(toast.id)" class="ml-auto">
+                        <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+
+    <script>
+        // Global Alpine.js state
+        function appState() {
+            return {
+                toasts: [],
+                toastId: 0,
+
+                showToast(message, type = 'info') {
+                    const id = ++this.toastId;
+                    const toast = {
+                        id: id,
+                        message: message,
+                        type: type,
+                        visible: true
+                    };
+
+                    this.toasts.push(toast);
+
+                    // Auto-remove after 3 seconds
+                    setTimeout(() => {
+                        this.removeToast(id);
+                    }, 3000);
+                },
+
+                removeToast(id) {
+                    const index = this.toasts.findIndex(t => t.id === id);
+                    if (index !== -1) {
+                        this.toasts[index].visible = false;
+                        setTimeout(() => {
+                            this.toasts.splice(index, 1);
+                        }, 200);
+                    }
+                }
+            }
+        }
+
+        // Custom event listener for showing toasts
+        window.addEventListener('show-toast', (event) => {
+            const message = event.detail.message;
+            const type = event.detail.type || 'info';
+
+            // Trigger Alpine.js toast
+            const appStateEl = document.querySelector('[x-data="appState()"]');
+            if (appStateEl && appStateEl.__x) {
+                appStateEl.__x.$data.showToast(message, type);
+            }
+        });
+
+        // HTMX CSRF Token Configuration
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                || document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                || getCookie('csrftoken');
+
+            if (csrfToken) {
+                event.detail.headers['X-CSRFToken'] = csrfToken;
+            }
+        });
+
+        // Helper function to get cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // HTMX Event Handlers
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            if (window.Alpine) {
+                Alpine.initTree(event.detail.target);
+            }
+        });
+
+        // Handle Django messages
+        document.body.addEventListener('htmx:afterSettle', function(event) {
+            const messages = event.detail.target.querySelectorAll('[data-message]');
+            messages.forEach(function(message) {
+                const messageText = message.dataset.message;
+                const messageType = message.dataset.messageType || 'info';
+                window.dispatchEvent(new CustomEvent('show-toast', {
+                    detail: { message: messageText, type: messageType }
+                }));
+                message.remove();
+            });
+        });
+
+        // HTMX Configuration
+        htmx.config.defaultSwapStyle = 'innerHTML';
+        htmx.config.defaultSwapDelay = 0;
+        htmx.config.defaultSettleDelay = 100;
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

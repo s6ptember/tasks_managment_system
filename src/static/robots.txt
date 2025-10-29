@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /users/login/
+Disallow: /users/register/
+
+Sitemap: https://domen.com/sitemap.xml

@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+<!--
+Filename: dashboard.html
+Path: src/templates/tasks/dashboard.html
+Description: Главная страница с адаптивной навигацией
+-->
+
+{% block title %}Задачи - {{ selected_date|date:"d.m.Y" }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="liquid-glass organic-shape refraction-layer depth-layer-3 p-8 mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-2 tracking-tight">
+                Hello, {{ user.first_name_only }}
+            </h1>
+            <p class="text-gray-600 text-lg font-light">
+                {% if active_tasks_count > 0 %}
+                    {% if view_mode == 'all' %}
+                        У вас {{ active_tasks_count }} {% if active_tasks_count == 1 %}активная задача{% elif active_tasks_count < 5 %}активные задачи{% else %}активных задач{% endif %}
+                    {% else %}
+                        Сегодня у вас {{ active_tasks_count }} {% if active_tasks_count == 1 %}активная задача{% elif active_tasks_count < 5 %}активные задачи{% else %}активных задач{% endif %}
+                    {% endif %}
+                {% else %}
+                    Нет активных задач
+                {% endif %}
+            </p>
+        </div>
+
+        {% if can_create_tasks %}
+        <button
+            hx-get="{% url 'tasks:task_create' %}?date={{ selected_date|date:'Y-m-d' }}"
+            hx-target="#modal-container"
+            hx-swap="innerHTML"
+            class="liquid-glass organic-shape tactile-surface ripple px-8 py-4 text-gray-900 font-medium hover:scale-105 transition-all duration-300 depth-layer-2"
+        >
+            <span class="flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                </svg>
+                Add Task
+            </span>
+        </button>
+        {% endif %}
+    </div>
+</header>
+
+<!-- Navigation: Days + "All Tasks" Button -->
+<nav class="frosted-glass organic-shape lens-effect depth-layer-2 p-3 mb-8 delay-100 relative">
+    <div class="flex items-center gap-2">
+        <!-- Scrollable Days Container -->
+        <div class="flex gap-2 overflow-x-auto flex-1 pr-2 md:pr-0" style="-webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
+            <style>
+                .days-scroll::-webkit-scrollbar {
+                    display: none;
+                }
+            </style>
+            <div class="flex gap-2 days-scroll">
+                <!-- Daily Navigation -->
+                {% for day in week_dates %}
+                <button
+                    hx-get="?date={{ day.date|date:'Y-m-d' }}&mode=daily"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    hx-push-url="true"
+                    class="organic-shape px-6 py-3 text-gray-900 font-medium whitespace-nowrap transition-all duration-300 hover:scale-105 ripple min-w-[80px] flex-shrink-0 {% if day.is_active and view_mode == 'daily' %}liquid-glass depth-layer-2{% else %}tactile-surface{% endif %}"
+                    style="border-radius: 20px;"
+                >
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-gray-600">{{ day.day_name }}</span>
+                        <span class="text-lg font-bold">{{ day.day_number }}</span>
+                        {% if day.is_today %}
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full mt-1"></div>
+                        {% endif %}
+                    </div>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Divider (hidden on mobile) -->
+        <div class="hidden md:block w-px bg-gray-300 mx-2 self-stretch flex-shrink-0"></div>
+
+        <!-- "All Tasks" Button - Static on mobile, normal on desktop -->
+        <button
+            hx-get="?mode=all"
+            hx-target="#main-content"
+            hx-swap="innerHTML"
+            hx-push-url="true"
+            class="organic-shape transition-all duration-300 hover:scale-105 ripple flex-shrink-0 {% if view_mode == 'all' %}liquid-glass depth-layer-2{% else %}tactile-surface{% endif %}
+                   md:px-8 md:py-3 md:min-w-[120px]
+                   px-3 py-3 w-12 h-12 md:w-auto md:h-auto"
+            style="border-radius: 20px;"
+            title="Все задачи"
+        >
+            <!-- Desktop: Text + Icon -->
+            <div class="hidden md:flex items-center gap-2 justify-center text-gray-900 font-medium">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+                <span class="font-semibold">Все задачи</span>
+            </div>
+
+            <!-- Mobile: Icon Only -->
+            <div class="md:hidden flex items-center justify-center">
+                <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+            </div>
+        </button>
+    </div>
+</nav>
+
+<!-- Tasks Display -->
+{% if view_mode == 'all' %}
+    <!-- ALL TASKS MODE: Grouped by Date -->
+    {% if grouped_tasks %}
+        <div class="space-y-8 fade-in-up delay-200" style="opacity: 0;">
+            {% for group in grouped_tasks %}
+            <div class="task-group" id="date-group-{{ group.date|date:'Y-m-d' }}">
+                <!-- Date Header -->
+                <div class="liquid-glass organic-shape p-4 mb-4 {% if group.is_today %}depth-layer-3{% else %}depth-layer-1{% endif %}">
+                    <div class="flex items-center gap-3">
+                        {% if group.is_today %}
+                        <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        {% endif %}
+                        <h2 class="text-2xl font-bold text-gray-900">
+                            {{ group.date|date:"d.m.Y" }}
+                            {% if group.is_today %}
+                            <span class="text-lg font-normal text-gray-600 ml-2">(Сегодня)</span>
+                            {% endif %}
+                        </h2>
+                        <span class="ml-auto text-gray-600 text-sm">
+                            {{ group.tasks|length }} {% if group.tasks|length == 1 %}задача{% elif group.tasks|length < 5 %}задачи{% else %}задач{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Tasks for this date -->
+                {% if group.has_tasks %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for task in group.tasks %}
+                        {% include 'tasks/partials/task_card.html' with task=task %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <!-- Empty day placeholder -->
+                <div class="frosted-glass organic-shape p-8 text-center">
+                    <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                    <p class="text-gray-600 font-medium">На этот день нет задач</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+    <!-- No tasks at all -->
+    <div class="fade-in-up delay-200" style="opacity: 0;">
+        <div class="text-center py-16">
+            <div class="frosted-glass organic-shape inline-flex items-center justify-center w-20 h-20 mb-4">
+                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Нет задач</h3>
+            <p class="text-gray-600 mb-6">Задачи пока не запланированы</p>
+            {% if can_create_tasks %}
+            <button
+                hx-get="{% url 'tasks:task_create' %}?date={{ selected_date|date:'Y-m-d' }}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML"
+                class="liquid-glass organic-shape tactile-surface ripple px-6 py-3 text-gray-900 font-semibold hover:scale-[1.02] transition-all duration-300 depth-layer-1 inline-flex items-center gap-2"
+                style="border-radius: 20px;"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Создать первую задачу
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+{% else %}
+    <!-- DAILY MODE: Tasks for Selected Date -->
+    {% if tasks %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 fade-in-up delay-200" style="opacity: 0;">
+        {% for task in tasks %}
+            {% include 'tasks/partials/task_card.html' with task=task %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="fade-in-up delay-200" style="opacity: 0;">
+        <div class="text-center py-16">
+            <div class="frosted-glass organic-shape inline-flex items-center justify-center w-20 h-20 mb-4">
+                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Нет задач на этот день</h3>
+            <p class="text-gray-600 mb-6">На {{ selected_date|date:"d.m.Y" }} задачи пока не запланированы</p>
+            {% if can_create_tasks %}
+            <button
+                hx-get="{% url 'tasks:task_create' %}?date={{ selected_date|date:'Y-m-d' }}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML"
+                class="liquid-glass organic-shape tactile-surface ripple px-6 py-3 text-gray-900 font-semibold hover:scale-[1.02] transition-all duration-300 depth-layer-1 inline-flex items-center gap-2"
+                style="border-radius: 20px;"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Создать первую задачу
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+<script>
+    // Auto-scroll to today's date in "All Tasks" mode
+    document.addEventListener('DOMContentLoaded', function() {
+        const todayGroup = document.querySelector('[id^="date-group-"]');
+        if (todayGroup && '{{ view_mode }}' === 'all') {
+            setTimeout(() => {
+                todayGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+    });
+</script>
+{% endblock %}

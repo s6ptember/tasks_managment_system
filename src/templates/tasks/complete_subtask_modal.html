@@ -1,0 +1,116 @@
+<!--
+Filename: complete_subtask_modal.html
+Path: src/templates/tasks/complete_subtask_modal.html
+Description: Модальное окно подтверждения завершения подзадачи в White Liquid Glass стиле
+-->
+
+<div
+    class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4"
+    x-data="{ open: true }"
+    x-show="open"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @click.self="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+>
+    <div
+        class="frosted-glass organic-shape w-full max-w-md"
+        x-show="open"
+        x-transition:enter="transition ease-out duration-200 delay-100"
+        x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-95"
+    >
+        <!-- Header -->
+        <div class="liquid-glass px-6 py-5 border-b border-gray-200" style="border-radius: 32px 32px 0 0;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 flex items-center justify-center liquid-glass" style="border-radius: 12px;">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">Завершить подзадачу?</h2>
+                    </div>
+                </div>
+                <button
+                    @click="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+                    class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                    style="border-radius: 12px;"
+                >
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6">
+            <div class="mb-6">
+                <p class="text-gray-900 text-lg mb-3">
+                    Вы готовы отметить подзадачу как выполненную?
+                </p>
+
+                <!-- Task and Subtask Info -->
+                <div class="liquid-glass p-4 space-y-2" style="border-radius: 16px;">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <div>
+                            <p class="text-gray-600 text-xs">Задача</p>
+                            <p class="text-gray-900 font-semibold">{{ task.title }}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-2 pt-2 border-t border-gray-200">
+                        <svg class="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                        </svg>
+                        <div>
+                            <p class="text-gray-600 text-xs">Подзадача</p>
+                            <p class="text-gray-900 font-semibold">{{ subtask.name }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <form
+                hx-post="{% url 'tasks:subtask_complete' subtask.pk %}"
+                hx-target="#task-card-{{ task.id }}"
+                hx-swap="outerHTML"
+                @htmx:after-request="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+            >
+                {% csrf_token %}
+                <div class="flex gap-3">
+                    <button
+                        type="button"
+                        @click="open = false; setTimeout(() => { document.getElementById('modal-container').innerHTML = '' }, 150)"
+                        class="flex-1 px-6 py-3 tactile-surface text-gray-900 font-semibold hover:scale-105 transition-all duration-300"
+                        style="border-radius: 16px;"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        class="flex-1 px-6 py-3 liquid-glass ripple text-gray-900 font-semibold hover:scale-105 transition-all duration-300 depth-layer-2 flex items-center justify-center gap-2"
+                        style="border-radius: 16px; border: 1px solid rgba(34, 197, 94, 0.3);"
+                    >
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Завершить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,326 @@
+<!--
+Filename: task_form.html
+Path: src/templates/tasks/task_form.html
+Description: Модальное окно для создания задачи с редактируемыми подзадачами
+-->
+
+<div
+    class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 p-4"
+    x-data="{
+        open: true,
+        taskTitle: '{{ form.title.value|default:"" }}',
+        selectedSubtasks: [],
+        availableSubtasks: [],
+        showSubtasksDropdown: false,
+
+        async loadTemplateData(templateId) {
+            if (!templateId) {
+                this.taskTitle = '';
+                this.selectedSubtasks = [];
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/templates/' + templateId + '/');
+                const data = await response.json();
+
+                this.taskTitle = data.name;
+                this.selectedSubtasks = data.subtasks.map((st, index) => ({
+                    id: st.id,
+                    name: st.name,
+                    order: index,
+                    isFromTemplate: true
+                }));
+            } catch (error) {
+                console.error('Error loading template:', error);
+            }
+        },
+
+        async loadAvailableSubtasks() {
+            try {
+                const response = await fetch('/api/templates/subtask-items/');
+                const data = await response.json();
+                this.availableSubtasks = data;
+            } catch (error) {
+                console.error('Error loading subtasks:', error);
+            }
+        },
+
+        isSubtaskSelected(subtaskId) {
+            return this.selectedSubtasks.some(st => st.id === subtaskId);
+        },
+
+        addSubtask(subtask) {
+            if (!this.isSubtaskSelected(subtask.id)) {
+                this.selectedSubtasks.push({
+                    id: subtask.id,
+                    name: subtask.name,
+                    order: this.selectedSubtasks.length,
+                    isFromTemplate: false
+                });
+            }
+        },
+
+        removeSubtask(index) {
+            this.selectedSubtasks.splice(index, 1);
+            // Обновляем порядок
+            this.selectedSubtasks.forEach((st, i) => {
+                st.order = i;
+            });
+        },
+
+        closeModal() {
+            this.open = false;
+            setTimeout(() => {
+                document.getElementById('modal-container').innerHTML = '';
+            }, 150);
+        },
+
+        init() {
+            this.loadAvailableSubtasks();
+        }
+    }"
+    x-init="init()"
+    x-show="open"
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @click.self="closeModal()"
+>
+    <div
+        class="frosted-glass organic-shape w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        x-show="open"
+        x-transition:enter="transition ease-out duration-200 delay-100"
+        x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-95"
+        @click.stop
+    >
+        <!-- Header -->
+        <div class="sticky top-0 liquid-glass border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10" style="border-radius: 32px 32px 0 0;">
+            <h2 class="text-2xl font-bold text-gray-900">
+                {% if form.instance.pk %}Редактировать задачу{% else %}Создать задачу{% endif %}
+            </h2>
+            <button
+                @click="closeModal()"
+                type="button"
+                class="w-10 h-10 flex items-center justify-center transition-colors hover:bg-gray-100"
+                style="border-radius: 12px;"
+            >
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Form -->
+        <form
+            hx-post="{% if form.instance.pk %}{% url 'tasks:task_edit' form.instance.pk %}{% else %}{% url 'tasks:task_create' %}{% endif %}"
+            hx-target="#main-content"
+            hx-swap="innerHTML"
+            class="p-6 space-y-6"
+            @htmx:after-request="if(event.detail.successful) { closeModal() }"
+        >
+            {% csrf_token %}
+
+            <!-- Шаблон (только при создании) -->
+            {% if not form.instance.pk %}
+            <div>
+                <label for="{{ form.template.id_for_label }}" class="block text-sm font-semibold text-gray-900 mb-2">
+                    Шаблон задачи
+                </label>
+                <select
+                    name="{{ form.template.name }}"
+                    id="{{ form.template.id_for_label }}"
+                    class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                    style="border-radius: 16px;"
+                    required
+                    @change="loadTemplateData($event.target.value)"
+                >
+                    <option value="">Выберите шаблон</option>
+                    {% for template in form.fields.template.queryset %}
+                    <option value="{{ template.pk }}">{{ template.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.template.errors %}
+                <p class="mt-2 text-sm text-red-600">{{ form.template.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Название задачи -->
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-semibold text-gray-900 mb-2">
+                    Название задачи
+                </label>
+                <input
+                    type="text"
+                    name="{{ form.title.name }}"
+                    id="{{ form.title.id_for_label }}"
+                    x-model="taskTitle"
+                    class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-lg"
+                    style="border-radius: 16px;"
+                    placeholder="Например: ВИДЕО-ПРОЕКТ"
+                    required
+                >
+                {% if form.title.errors %}
+                <p class="mt-2 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Дата -->
+            <div>
+                <label for="{{ form.date.id_for_label }}" class="block text-sm font-semibold text-gray-900 mb-2">
+                    Дата выполнения
+                </label>
+                <input
+                    type="date"
+                    name="{{ form.date.name }}"
+                    id="{{ form.date.id_for_label }}"
+                    {% if form.date.value %}value="{{ form.date.value|date:'Y-m-d' }}"{% endif %}
+                    class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                    style="border-radius: 16px; color-scheme: light;"
+                    required
+                >
+                {% if form.date.errors %}
+                <p class="mt-2 text-sm text-red-600">{{ form.date.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Подзадачи -->
+            <div class="border-t border-gray-200 pt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Подзадачи в шаблоне</h3>
+
+                    <!-- Dropdown для добавления подзадач -->
+                    <div class="relative" @click.away="showSubtasksDropdown = false">
+                        <button
+                            type="button"
+                            @click="showSubtasksDropdown = !showSubtasksDropdown"
+                            class="liquid-glass tactile-surface ripple w-10 h-10 flex items-center justify-center transition-all duration-300 hover:scale-110"
+                            style="border-radius: 12px;"
+                        >
+                            <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Выпадающий список подзадач -->
+                        <div
+                            x-show="showSubtasksDropdown"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="opacity-0 scale-95"
+                            x-transition:enter-end="opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="opacity-100 scale-100"
+                            x-transition:leave-end="opacity-0 scale-95"
+                            class="absolute top-12 right-0 liquid-glass organic-shape py-2 z-10 w-64 max-h-80 overflow-y-auto"
+                            style="display: none; border-radius: 16px;"
+                        >
+                            <div class="px-3 py-2 border-b border-gray-200">
+                                <p class="text-xs font-semibold text-gray-600 uppercase">Доступные подзадачи</p>
+                            </div>
+                            <template x-for="subtask in availableSubtasks" :key="subtask.id">
+                                <button
+                                    type="button"
+                                    @click="addSubtask(subtask)"
+                                    :disabled="isSubtaskSelected(subtask.id)"
+                                    :class="isSubtaskSelected(subtask.id) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'"
+                                    class="w-full px-4 py-2 text-left flex items-center gap-2 text-gray-900 transition-colors"
+                                >
+                                    <svg
+                                        class="w-4 h-4"
+                                        :class="isSubtaskSelected(subtask.id) ? 'text-green-500' : 'text-gray-400'"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                    >
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span x-text="subtask.name" class="text-sm"></span>
+                                </button>
+                            </template>
+                            <template x-if="availableSubtasks.length === 0">
+                                <div class="px-4 py-3 text-center text-sm text-gray-500">
+                                    Нет доступных подзадач
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Список выбранных подзадач -->
+                <div class="space-y-3">
+                    <template x-for="(subtask, index) in selectedSubtasks" :key="index">
+                        <div class="liquid-glass p-4 flex items-center justify-between" style="border-radius: 16px;">
+                            <div class="flex items-center gap-3">
+                                <div class="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                                <span x-text="subtask.name" class="text-sm text-gray-900 font-medium"></span>
+                            </div>
+                            <button
+                                type="button"
+                                @click="removeSubtask(index)"
+                                class="w-8 h-8 flex items-center justify-center hover:bg-red-50 transition-colors"
+                                style="border-radius: 10px;"
+                            >
+                                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                            <!-- Скрытое поле для передачи ID подзадачи -->
+                            <input type="hidden" name="subtask_ids[]" :value="subtask.id">
+                        </div>
+                    </template>
+
+                    <template x-if="selectedSubtasks.length === 0">
+                        <div class="text-center py-8 text-gray-500">
+                            Нет подзадач. Выберите шаблон или добавьте подзадачи вручную.
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Статус (только при редактировании) -->
+            {% if form.instance.pk %}
+            <div>
+                <label for="{{ form.status.id_for_label }}" class="block text-sm font-semibold text-gray-900 mb-2">
+                    Статус задачи
+                </label>
+                <select
+                    name="{{ form.status.name }}"
+                    id="{{ form.status.id_for_label }}"
+                    class="w-full px-4 py-3 bg-white border border-gray-300 text-gray-900 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                    style="border-radius: 16px;"
+                >
+                    {% for value, label in form.fields.status.choices %}
+                    <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Buttons -->
+            <div class="flex gap-3 pt-4">
+                <button
+                    type="button"
+                    @click="closeModal()"
+                    class="flex-1 px-6 py-3 tactile-surface text-gray-900 font-semibold hover:scale-105 transition-all duration-300"
+                    style="border-radius: 16px;"
+                >
+                    Отмена
+                </button>
+                <button
+                    type="submit"
+                    class="flex-1 px-6 py-3 liquid-glass ripple text-gray-900 font-semibold hover:scale-105 transition-all duration-300 depth-layer-2"
+                    style="border-radius: 16px;"
+                >
+                    {% if form.instance.pk %}Сохранить{% else %}Создать{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
